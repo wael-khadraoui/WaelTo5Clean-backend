@@ -42,7 +42,7 @@ pipeline {
             steps {
                 sh 'mkdir -p reports'
                 sh 'npm audit --json > reports/npm-audit.json || true'
-                sh '''
+                sh 'node scripts/generate-owasp-report.js || true'
                     node -e "
                     const audit = require('./reports/npm-audit.json');
                     const vulns = audit.vulnerabilities || {};
@@ -73,7 +73,7 @@ pipeline {
                 sh "trivy image --severity HIGH,CRITICAL --format template --template '@/usr/local/share/trivy/templates/html.tpl' -o reports/trivy-backend.html ${IMAGE_NAME}:${IMAGE_TAG} || true"
                 sh "trivy image --severity HIGH,CRITICAL --format json -o reports/trivy-backend.json ${IMAGE_NAME}:${IMAGE_TAG} || true"
                 sh "trivy image --severity HIGH,CRITICAL --exit-code 0 ${IMAGE_NAME}:${IMAGE_TAG}"
-                sh '''
+                sh 'node scripts/generate-owasp-report.js || true'
                     if [ ! -f reports/trivy-backend.html ] || [ ! -s reports/trivy-backend.html ]; then
                         node -e "
                         const fs = require('fs');
@@ -105,7 +105,7 @@ pipeline {
         }
         stage('Generate Reports Index') {
             steps {
-                sh '''
+                sh 'node scripts/generate-owasp-report.js || true'
                     cat > reports/index.html << 'HTMLEOF'
 <!DOCTYPE html>
 <html>
@@ -184,7 +184,7 @@ HTMLEOF
                     usernameVariable: 'DOCKER_USER',
                     passwordVariable: 'DOCKER_PASS'
                 )]) {
-                    sh '''
+                    sh 'node scripts/generate-owasp-report.js || true'
                         echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
                         docker push ${IMAGE_NAME}:${IMAGE_TAG}
                         docker tag ${IMAGE_NAME}:${IMAGE_TAG} ${IMAGE_NAME}:latest
