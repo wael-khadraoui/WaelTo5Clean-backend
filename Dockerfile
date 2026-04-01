@@ -1,24 +1,17 @@
-# syntax=docker/dockerfile:1
 FROM node:20-alpine
 
-WORKDIR /workspace
+WORKDIR /app
 
-# Middleware (own node_modules — required for ../../middleware imports from backend/src)
-COPY middleware/package.json middleware/package-lock.json ./middleware/
-WORKDIR /workspace/middleware
+COPY package.json package-lock.json ./
 RUN npm ci --omit=dev && npm cache clean --force
-COPY middleware/*.js ./
 
-# Backend API
-WORKDIR /workspace/backend
-COPY backend/package.json backend/package-lock.json ./
-RUN npm ci --omit=dev && npm cache clean --force
-COPY backend/src ./src
+COPY src ./src
+COPY scripts ./scripts
+COPY middleware ./middleware
 
 RUN addgroup -g 1001 -S api && adduser -S api -u 1001 -G api \
-  && chown -R api:api /workspace
-
+    && chown -R api:api /app
 USER api
-EXPOSE 4000
 
+EXPOSE 8080
 CMD ["node", "src/index.js"]
