@@ -1,0 +1,13 @@
+{
+  "name": "@to5/middleware",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Shared Express middleware (security, auth helpers)",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express-rate-limit": "^7.4.0",
+    "helmet": "^7.1.0",
+    "jsonwebtoken": "^9.0.2"
+  }
+}
