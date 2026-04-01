@@ -1,5 +1,5 @@
 import jwt from 'jsonwebtoken';
-import { getPool } from '../backend/src/db.js';
+import { getPool } from '../app/src/db.js';
 
 /** Verify JWT, then load current user from DB (role may change without a new token). */
 export async function requireAuth(req, res, next) {
