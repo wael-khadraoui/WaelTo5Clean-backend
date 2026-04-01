@@ -9,6 +9,10 @@ COPY src ./src
 COPY scripts ./scripts
 
 COPY middleware /middleware
+WORKDIR /middleware
+RUN npm ci --omit=dev && npm cache clean --force
+
+WORKDIR /app
 
 RUN addgroup -g 1001 -S api && adduser -S api -u 1001 -G api \
     && chown -R api:api /app /middleware
