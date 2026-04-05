@@ -2,28 +2,21 @@ const fs=require('fs');
 let d={};
 try{d=JSON.parse(fs.readFileSync('reports/trivy-backend.json','utf8'))}catch(e){}
 const res=d.Results||[];
-let html='<!DOCTYPE html><html><head><title>Backend Image - Trivy Report</title>';
-html+='<style>body{font-family:Arial,sans-serif;margin:20px;background:#fff}h1{font-size:22px}h2{font-size:18px;margin-top:30px;color:#333}table{width:100%;border-collapse:collapse;margin-top:10px}th{background:#ddd;padding:10px;text-align:left;border:1px solid #ccc}td{padding:8px 10px;border:1px solid #ccc}.CRITICAL{background:#ff1744;color:white;font-weight:bold;text-align:center}.HIGH{background:#ff5252;color:white;font-weight:bold;text-align:center}.MEDIUM{background:#ffd600;font-weight:bold;text-align:center}.LOW{background:#76ff03;font-weight:bold;text-align:center}.UNKNOWN{background:#bdbdbd;text-align:center}a{color:#1565c0}.footer{margin-top:30px;color:#666;font-size:12px;text-align:center}p.nomisconfig{color:#4caf50;font-weight:bold}</style></head><body>';
-html+='<h1>backend-image (alpine) - Trivy Report - '+new Date().toISOString()+'</h1>';
+let sections='';
+let total=0;
 for(const r of res){
-    const target=r.Target||'unknown';
-    const typ=r.Type||'';
     const vulns=r.Vulnerabilities||[];
-    if(vulns.length===0){continue}
-    const section=typ.includes('node')? 'node-pkg' : target.includes('alpine')? 'alpine' : target;
-    html+='<h2>'+section+'</h2>';
-    if(r.Misconfigurations&&r.Misconfigurations.length===0){html+='<p class="nomisconfig">No Misconfigurations found</p>'}
-    html+='<table><tr><th>Package</th><th>Vulnerability ID</th><th>Severity</th><th>Installed Version</th><th>Fixed Version</th><th>Links</th></tr>';
+    if(vulns.length===0)continue;
+    const typ=r.Type||r.Target||'unknown';
+    sections+='<h2>'+typ+'</h2><table><tr><th>Package</th><th>Vulnerability ID</th><th>Severity</th><th>Installed</th><th>Fixed</th><th>Links</th></tr>';
     for(const v of vulns){
+        total++;
         const sev=v.Severity||'UNKNOWN';
-        const links=[];
-        if(v.PrimaryURL){links.push('<a href="'+v.PrimaryURL+'" target="_blank">'+v.PrimaryURL+'</a>')}
-        if(v.References){for(const ref of v.References.slice(0,3)){links.push('<a href="'+ref+'" target="_blank">'+ref+'</a>')}}
-        if(v.References&&v.References.length>3){links.push('<a href="#">Toggle more links</a>')}
-        html+='<tr><td>'+v.PkgName+'</td><td>'+v.VulnerabilityID+'</td><td class="'+sev+'">'+sev+'</td><td>'+(v.InstalledVersion||'')+'</td><td>'+(v.FixedVersion||'')+'</td><td>'+links.join('<br>')+'</td></tr>';
+        const link=v.PrimaryURL?'<a href="'+v.PrimaryURL+'" target="_blank">Details</a>':'';
+        sections+='<tr><td>'+v.PkgName+'</td><td>'+v.VulnerabilityID+'</td><td class="'+sev+'">'+sev+'</td><td>'+(v.InstalledVersion||'')+'</td><td>'+(v.FixedVersion||'')+'</td><td>'+link+'</td></tr>';
     }
-    html+='</table>';
+    sections+='</table>';
 }
-html+='<div class="footer">PFE DevSecOps - Wael Khadraoui - 2026</div></body></html>';
-fs.writeFileSync('reports/trivy-backend.html',html);
-console.log('Trivy HTML report generated');
+const html='<!DOCTYPE html><html><head><title>Trivy Report</title><style>body{font-family:Arial;margin:20px}h1{color:#0d47a1}h2{color:#1565c0;margin-top:30px}table{width:100%;border-collapse:collapse;margin-top:10px}th{background:#ddd;padding:10px;text-align:left;border:1px solid #ccc}td{padding:8px 10px;border:1px solid #ccc}.CRITICAL{background:#ff1744;color:white;font-weight:bold;text-align:center}.HIGH{background:#ff5252;color:white;font-weight:bold;text-align:center}.MEDIUM{background:#ffd600;font-weight:bold;text-align:center}.LOW{background:#76ff03;font-weight:bold;text-align:center}a{color:#1565c0}.info{background:#f5f5f5;padding:15px;border-radius:8px;margin:15px 0}</style></head><body><h1>Trivy Scan Report - Backend</h1><div class="info"><p><b>Image:</b> wael558/waelto5clean-backend</p><p><b>Total Vulnerabilities:</b> '+total+'</p><p><b>Date:</b> '+new Date().toISOString()+'</p></div>'+sections+'</body></html>';
+fs.writeFileSync('reports/trivy-report.html',html);
+console.log('OK: '+total+' vulns');
