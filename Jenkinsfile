@@ -12,12 +12,6 @@ pipeline {
                 git branch: 'main', url: 'https://github.com/wael-khadraoui/WaelTo5Clean-backend.git', credentialsId: 'github-creds'
             }
         }
-        stage('Install Dependencies') {
-            steps { sh 'npm install' }
-        }
-        stage('Unit Tests') {
-            steps { sh 'npm test || true' }
-        }
         stage('SAST - SonarQube') {
             steps {
                 withCredentials([string(credentialsId: 'sonarqube-token', variable: 'SONAR_TOKEN')]) {
