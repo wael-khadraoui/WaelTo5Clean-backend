@@ -4,24 +4,38 @@ pipeline {
         DOCKERHUB_USER = 'wael558'
         IMAGE_NAME     = "${DOCKERHUB_USER}/waelto5clean-backend"
         IMAGE_TAG      = "${BUILD_NUMBER}"
-        SONAR_HOST     = 'http://172.17.0.1:9000'
-        VAULT_ADDR     = 'http://172.17.0.1:31200'
     }
     stages {
-        stage('Checkout') {
-            steps { git branch: 'main', url: 'https://github.com/wael-khadraoui/WaelTo5Clean-backend.git', credentialsId: 'github-creds' }
-        }
-        stage('Vault - Fetch Secrets') {
+        stage('Vault - Fetch All Secrets') {
             steps {
-                withVault(configuration: [vaultUrl: 'http://172.17.0.1:31200', vaultCredentialId: 'vault-token', engineVersion: 2], vaultSecrets: [[path: 'secret/waelto5clean/dockerhub', secretValues: [[envVar: 'VAULT_DOCKER_USER', vaultKey: 'username'], [envVar: 'VAULT_DOCKER_TOKEN', vaultKey: 'token']]]]) {
-                    sh 'echo "Vault: secrets fetched - DockerHub user: $VAULT_DOCKER_USER"'
+                withVault(configuration: [vaultUrl: 'http://172.17.0.1:31200', vaultCredentialId: 'vault-token', engineVersion: 2], vaultSecrets: [
+                    [path: 'secret/waelto5clean/sonarqube', secretValues: [
+                        [envVar: 'SONAR_URL', vaultKey: 'url'],
+                        [envVar: 'SONAR_TOKEN', vaultKey: 'token']
+                    ]],
+                    [path: 'secret/waelto5clean/dockerhub', secretValues: [
+                        [envVar: 'DOCKER_USER', vaultKey: 'username'],
+                        [envVar: 'DOCKER_PASS', vaultKey: 'token']
+                    ]],
+                    [path: 'secret/waelto5clean/github', secretValues: [
+                        [envVar: 'GIT_USER', vaultKey: 'username'],
+                        [envVar: 'GIT_TOKEN', vaultKey: 'token']
+                    ]]
+                ]) {
+                    sh 'echo "All secrets fetched from Vault successfully"'
+                    sh 'echo "SonarQube URL: $SONAR_URL"'
+                    sh 'echo "DockerHub User: $DOCKER_USER"'
+                    sh 'echo "GitHub User: $GIT_USER"'
                 }
             }
         }
-        stage('SAST - SonarQube') {
+        stage('Checkout') {
+            steps { git branch: 'main', url: 'https://github.com/wael-khadraoui/WaelTo5Clean-backend.git', credentialsId: 'github-creds' }
+        }
+        stage('SAST - SonarQube via Vault') {
             steps {
-                withCredentials([string(credentialsId: 'sonarqube-token', variable: 'SONAR_TOKEN')]) {
-                    sh """sonar-scanner -Dsonar.projectKey=WaelTo5Clean-backend -Dsonar.projectName=WaelTo5Clean-backend -Dsonar.sources=src -Dsonar.host.url=${SONAR_HOST} -Dsonar.token=${SONAR_TOKEN}"""
+                withVault(configuration: [vaultUrl: 'http://172.17.0.1:31200', vaultCredentialId: 'vault-token', engineVersion: 2], vaultSecrets: [[path: 'secret/waelto5clean/sonarqube', secretValues: [[envVar: 'SONAR_URL', vaultKey: 'url'], [envVar: 'SONAR_TOKEN', vaultKey: 'token']]]]) {
+                    sh 'sonar-scanner -Dsonar.projectKey=WaelTo5Clean-backend -Dsonar.projectName=WaelTo5Clean-backend -Dsonar.sources=src -Dsonar.host.url=$SONAR_URL -Dsonar.token=$SONAR_TOKEN'
                 }
             }
         }
@@ -60,7 +74,7 @@ pipeline {
     }
     post {
         always { cleanWs() }
-        success { echo 'Pipeline Backend DevSecOps avec Vault termine avec succes !' }
+        success { echo 'Pipeline DevSecOps avec Vault - TOUS les secrets centralises !' }
         failure { echo 'Pipeline echoue - verifier les logs' }
     }
 }
