@@ -56,7 +56,7 @@ pipeline {
         }
         stage('AI Security Scanner') {
             steps {
-                sh 'node scripts/ai-security-scan.js || true'
+                sh 'node scripts/ai-security-scan.cjs || true'
             }
         }
         stage('Snyk Security Scan') {
