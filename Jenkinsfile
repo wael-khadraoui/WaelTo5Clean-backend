@@ -54,6 +54,11 @@ pipeline {
                 sh "trivy image --severity HIGH,CRITICAL --exit-code 0 ${IMAGE_NAME}:${IMAGE_TAG}"
             }
         }
+        stage('AI Security Scanner') {
+            steps {
+                sh 'node scripts/ai-security-scan.js || true'
+            }
+        }
         stage('Snyk Security Scan') {
             steps { sh "snyk test --docker ${IMAGE_NAME}:${IMAGE_TAG} --severity-threshold=high || true" }
         }
