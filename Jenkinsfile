@@ -5,11 +5,17 @@ pipeline {
         IMAGE_NAME     = "${DOCKERHUB_USER}/waelto5clean-backend"
         IMAGE_TAG      = "${BUILD_NUMBER}"
         SONAR_HOST     = 'http://172.17.0.1:9000'
+        VAULT_ADDR     = 'http://172.17.0.1:31200'
     }
     stages {
         stage('Checkout') {
+            steps { git branch: 'main', url: 'https://github.com/wael-khadraoui/WaelTo5Clean-backend.git', credentialsId: 'github-creds' }
+        }
+        stage('Vault - Fetch Secrets') {
             steps {
-                git branch: 'main', url: 'https://github.com/wael-khadraoui/WaelTo5Clean-backend.git', credentialsId: 'github-creds'
+                withVault(configuration: [vaultUrl: 'http://172.17.0.1:31200', vaultCredentialId: 'vault-token', engineVersion: 2], vaultSecrets: [[path: 'secret/waelto5clean/dockerhub', secretValues: [[envVar: 'VAULT_DOCKER_USER', vaultKey: 'username'], [envVar: 'VAULT_DOCKER_TOKEN', vaultKey: 'token']]]]) {
+                    sh 'echo "Vault: secrets fetched - DockerHub user: $VAULT_DOCKER_USER"'
+                }
             }
         }
         stage('SAST - SonarQube') {
@@ -23,7 +29,6 @@ pipeline {
             steps {
                 sh 'mkdir -p reports'
                 sh 'npm audit --json > reports/npm-audit.json || true'
-                sh 'node scripts/generate-owasp-report.js || true'
             }
         }
         stage('Build Docker Image') {
@@ -32,19 +37,15 @@ pipeline {
         stage('Trivy Image Scan') {
             steps {
                 sh "trivy image --severity HIGH,CRITICAL --format json -o reports/trivy-backend.json ${IMAGE_NAME}:${IMAGE_TAG} || true"
-                sh 'node scripts/generate-trivy-report.js || true'
                 sh "trivy image --severity HIGH,CRITICAL --exit-code 0 ${IMAGE_NAME}:${IMAGE_TAG}"
             }
         }
         stage('Snyk Security Scan') {
             steps { sh "snyk test --docker ${IMAGE_NAME}:${IMAGE_TAG} --severity-threshold=high || true" }
         }
-        stage('Generate Reports Index') {
-            steps { sh 'cp scripts/index.html reports/index.html' }
-        }
-        stage('Push to DockerHub') {
+        stage('Push to DockerHub via Vault') {
             steps {
-                withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                withVault(configuration: [vaultUrl: 'http://172.17.0.1:31200', vaultCredentialId: 'vault-token', engineVersion: 2], vaultSecrets: [[path: 'secret/waelto5clean/dockerhub', secretValues: [[envVar: 'DOCKER_USER', vaultKey: 'username'], [envVar: 'DOCKER_PASS', vaultKey: 'token']]]]) {
                     sh 'echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin'
                     sh "docker push ${IMAGE_NAME}:${IMAGE_TAG}"
                     sh "docker tag ${IMAGE_NAME}:${IMAGE_TAG} ${IMAGE_NAME}:latest"
@@ -58,11 +59,8 @@ pipeline {
         }
     }
     post {
-        always {
-            publishHTML(target: [allowMissing: true, alwaysLinkToLastBuild: true, keepAll: true, reportDir: 'reports', reportFiles: 'index.html', reportName: 'Security Reports'])
-            cleanWs()
-        }
-        success { echo 'Pipeline Backend DevSecOps termine avec succes !' }
-        failure { echo 'Pipeline Backend echoue - verifier les logs' }
+        always { cleanWs() }
+        success { echo 'Pipeline Backend DevSecOps avec Vault termine avec succes !' }
+        failure { echo 'Pipeline echoue - verifier les logs' }
     }
 }
